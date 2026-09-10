@@ -1,0 +1,10 @@
+PetClinic deployed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Access the app:
+  kubectl port-forward svc/{{ include "petclinic.fullname" . }} 8080:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  # then open http://localhost:8080
+
+{{- if .Values.ingress.enabled }}
+Or via ingress (add to /etc/hosts pointing {{ .Values.ingress.host }} at `minikube ip`):
+  http://{{ .Values.ingress.host }}
+{{- end }}

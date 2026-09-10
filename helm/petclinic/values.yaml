@@ -1,0 +1,64 @@
+replicaCount: 2
+
+image:
+  repository: durianknight/spring-petclinic
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  host: petclinic.local
+  annotations: {}
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+probes:
+  liveness:
+    path: /livez
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readiness:
+    path: /readyz
+    initialDelaySeconds: 20
+    periodSeconds: 5
+
+springProfile: mysql
+
+db:
+  # Set via --set or a values-secret.yaml (not committed) in real deployments.
+  url: jdbc:mysql://petclinic-mysql:3306/petclinic
+  user: petclinic
+  password: petclinic
+
+mysql:
+  enabled: true
+  image: mysql:9.7
+  rootPasswordEmpty: true
+  database: petclinic
+  user: petclinic
+  password: petclinic
+  storage: 1Gi
+
+metrics:
+  serviceMonitor:
+    enabled: false
+    namespace: monitoring
+    interval: 15s
