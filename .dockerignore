@@ -1,0 +1,14 @@
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+docker/
+helm/
+terraform/
+k8s/
+jenkins/
+monitoring/
+scripts/
+docs/
+*.md
