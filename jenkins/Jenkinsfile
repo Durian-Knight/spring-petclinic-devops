@@ -23,10 +23,11 @@ pipeline {
 
         stage('Build & Unit Test') {
             steps {
-                // MySqlIntegrationTests spins up a real MySQL via Testcontainers, which is slow/
-                // flaky in this CI container; excluded here and covered instead by the deploy
-                // smoke-check against the real cluster later in the pipeline.
-                sh "./mvnw -B -ntp clean test -Dtest='!MySqlIntegrationTests'"
+                // MySqlIntegrationTests/PostgresIntegrationTests each spin up a real database via
+                // Testcontainers/Spring Boot Docker Compose support, which isn't reliable in this
+                // docker-outside-of-docker Jenkins container; excluded here and covered instead by
+                // the deploy smoke-check against the real cluster later in the pipeline.
+                sh "./mvnw -B -ntp clean test -Dtest='!MySqlIntegrationTests,!PostgresIntegrationTests'"
             }
             post {
                 always {
