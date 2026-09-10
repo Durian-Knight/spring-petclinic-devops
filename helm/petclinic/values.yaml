@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: durianknight/spring-petclinic
+  repository: kitofoso/spring-petclinic
   tag: latest
   pullPolicy: IfNotPresent
 

@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME  = "durianknight/spring-petclinic"
+        IMAGE_NAME  = "kitofoso/spring-petclinic"
         IMAGE_TAG   = "${env.BUILD_NUMBER}"
         HELM_CHART  = "helm/petclinic"
         NAMESPACE   = "petclinic"
