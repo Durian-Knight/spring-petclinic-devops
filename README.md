@@ -1,3 +1,90 @@
+# Spring PetClinic — DevOps Showcase
+
+This is a fork of the official [Spring PetClinic](https://github.com/spring-projects/spring-petclinic)
+sample app, extended with a full local DevOps pipeline: containerization, CI/CD, Kubernetes, IaC, and
+monitoring. The original app README follows below the line; this section covers what was added.
+
+## DevOps additions
+
+```mermaid
+flowchart LR
+    Dev[Developer] -->|git push| GH[GitHub]
+    GH -->|poll SCM| Jenkins[Jenkins Pipeline]
+    Jenkins -->|mvnw test| Test[Unit Tests]
+    Jenkins -->|docker build| Image[Docker Image]
+    Jenkins -->|trivy scan| Scan[Security Scan]
+    Jenkins -->|push| Hub[(Docker Hub)]
+    Jenkins -->|helm upgrade| K8s[Kubernetes / minikube]
+    K8s --> App[PetClinic Pods]
+    K8s --> DB[(MySQL StatefulSet)]
+    Prom[Prometheus] -->|scrape /actuator/prometheus| App
+    Prom --> Grafana[Grafana Dashboard]
+    TF[Terraform] -->|helm_release| Prom
+    TF -->|helm_release| Ingress[ingress-nginx]
+```
+
+| Layer            | Tooling                                            | Where |
+|-------------------|----------------------------------------------------|-------|
+| Containerization  | Multi-stage `Dockerfile`, `docker-compose.yml`      | `docker/`, `docker-compose.yml` |
+| CI/CD             | Jenkins declarative pipeline                        | `jenkins/Jenkinsfile` |
+| Orchestration     | Helm chart (Deployment, Service, Ingress, HPA, StatefulSet DB, Secret) | `helm/petclinic/` |
+| IaC               | Terraform (namespaces, ingress-nginx, kube-prometheus-stack) | `terraform/` |
+| Monitoring        | Prometheus + Grafana, custom dashboard, Micrometer metrics | `monitoring/`, `pom.xml` |
+| One-command setup | Bootstrap script                                    | `scripts/bootstrap.sh` |
+
+### Quick start (local, minikube)
+
+```bash
+./scripts/bootstrap.sh
+```
+
+This starts minikube, enables the ingress addon, applies the Terraform stack (namespaces + monitoring),
+and deploys the app via Helm. See the script for the individual commands if you'd rather run them by hand.
+
+### CI/CD pipeline
+
+`jenkins/Jenkinsfile` runs: checkout → `mvnw test` → package → `docker build` → Trivy image scan
+(HIGH/CRITICAL, non-blocking) → push to Docker Hub → `helm upgrade --install` against the cluster.
+Docker Hub and kubeconfig credentials are configured directly in the Jenkins UI, not committed.
+
+### Kubernetes / Helm
+
+`helm/petclinic` deploys the app plus an in-chart MySQL `StatefulSet` (a managed database or the
+Bitnami MySQL chart would replace this in a real environment). Key knobs live in `values.yaml`:
+replica count, resource requests/limits, HPA thresholds, ingress host, and the Prometheus
+`ServiceMonitor` toggle.
+
+### IaC (Terraform)
+
+`terraform/` assumes a cluster already exists (`minikube start` — no mature Terraform provider covers
+minikube itself) and manages everything above that layer: the `monitoring` namespace, the
+`kube-prometheus-stack` Helm release, the Grafana dashboard ConfigMap, and optionally `ingress-nginx`
+and the `petclinic` release itself (both off by default — see `manage_ingress_via_terraform` and
+`manage_petclinic_via_terraform` in `terraform/*.tf`; the app release is normally owned by the Jenkins
+pipeline instead, to avoid two systems fighting over the same Helm release).
+
+### Monitoring
+
+The app exposes `/actuator/prometheus` via Micrometer. `terraform/monitoring.tf` installs
+kube-prometheus-stack and a custom dashboard (`monitoring/dashboards/petclinic-dashboard.json`)
+covering HTTP request rate/latency, JVM heap, thread count, CPU, and HikariCP connection pool usage.
+Enable `helm/petclinic`'s `metrics.serviceMonitor.enabled` to have Prometheus scrape the app.
+
+```bash
+kubectl port-forward svc/prometheus-grafana 3000:80 -n monitoring   # admin / see terraform var grafana_admin_password
+kubectl port-forward svc/prometheus-kube-prometheus-prometheus 9090:9090 -n monitoring
+```
+
+### Skills demonstrated
+
+- **Containers**: multi-stage builds, non-root images, health checks, `docker-compose` for local dev.
+- **CI/CD**: Jenkins declarative pipelines, automated testing, image scanning, credential management.
+- **Kubernetes**: Helm charts, probes, HPA, Secrets, StatefulSets, Ingress.
+- **IaC**: Terraform providers for Kubernetes/Helm, variables, toggled resources, remote-chart releases.
+- **Observability**: Prometheus scraping, Micrometer metrics, Grafana dashboards as code.
+
+---
+
 # Spring PetClinic Sample Application [![Build Status](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)[![Build Status](https://github.com/spring-projects/spring-petclinic/actions/workflows/gradle-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/gradle-build.yml)
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/spring-projects/spring-petclinic) [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=7517918)
@@ -42,7 +129,8 @@ See below for more details.
 
 ## Building a Container
 
-There is no `Dockerfile` in this project. You can build a container image (if you have a docker daemon) using the Spring Boot build plugin:
+This fork adds a multi-stage `docker/Dockerfile` (see [DevOps additions](#devops-additions) below).
+The upstream Spring Boot build plugin approach still works too:
 
 ```bash
 ./mvnw spring-boot:build-image
