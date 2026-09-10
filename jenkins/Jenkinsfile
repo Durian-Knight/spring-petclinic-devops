@@ -52,7 +52,8 @@ pipeline {
             steps {
                 sh """
                   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-                    aquasec/trivy:latest image --exit-code 0 --severity HIGH,CRITICAL \
+                    -v trivy-cache:/root/.cache/ \
+                    aquasec/trivy:latest image --exit-code 0 --severity HIGH,CRITICAL --timeout 15m \
                     ${IMAGE_NAME}:${IMAGE_TAG}
                 """
             }
